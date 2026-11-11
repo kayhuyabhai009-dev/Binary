@@ -166,19 +166,19 @@ Script ke har clause ke liye shot list banao (text-to-visual literalism):
 Sources: **Midjourney/Runway (AI)** + stock (sparingly) + After Effects/CapCut motion graphics.
 **Consistency lock:** ek video mein EK engine — style mix mat karo (alag videos mein alag engine allowed).
 
-## STEP 6 — Edit (Timeline Templates se)
+## STEP 6 — Edit (Timeline Templates se + Motion Engine)
 
-Full timeline specs: `templates/editing-timelines.md`. Core rules:
+Full timeline specs: `templates/editing-timelines.md`. **Production engine: `motion-engine.md` (zaroor padho — static slideshow = instant reject).** Core rules:
 
-1. **2-Second Rule:** koi frame 2s+ static nahi (counter, stamp, line, zoom — kuch na kuch chalta rahe)
-2. **Cut rate:** shorts 2-2.5s/shots; long-form 3-5s
+1. **Zero Static Frames:** koi frame 1s+ static nahi. Camera hamesha zinda (push/pull + wobble + breathing pulse + film-weave jitter); print-boil halftone texture
+2. **Cut rate:** shorts 2-2.5s/shots; long-form 3-5s. Har cut = **whip-pan/slide transition** + flash + whoosh (hard cut sirf deliberate impact par)
 3. **Face-cam trust hook:** pehle 8s split-screen (upar engine visual, neeche tum mic ke saath) → 0:09 se full-bleed. **Twist par 2s face-cam reset** (visual fatigue todta hai)
-4. **HUD callouts** (engine B): target dot ⦿ → line → tiny English label (bade noisy captions nahi)
-5. **Stamps & counters:** strong words par stamp thud; numbers par running counters/meters
-6. **Transitions:** hard cuts default; whoosh on scene changes; **kabhi bhi cheesy zoom/spin nahi**
-7. **Pattern interrupt** har 8-12s (visual grammar change: graphic → footage → text card → face-cam)
-8. **Twist moment:** 0.2s full silence → impact frame (dark flash / scale pop)
-9. **Visual loop ending:** last frame = first frame ka echo/morph (Sharks: fetus → wahi X-ray womb). Shorts ka end = emotional punchline, **CTA nahi**
+4. **HUD callouts** (engine B): target dot ⦿ → growing line → tiny English label (bade noisy captions nahi)
+5. **Stamps & counters:** strong words par SLAM stamp (overshoot drop + shake + starbursts); numbers par **ROLLING counters** jo noisy intermediates se guzar ke snap karein (money-meter feel)
+6. **Kinetic type:** labels word-by-word pop-in (ease-out-back overshoot) — static text kabhi nahi
+7. **Pattern interrupt** har 8-12s (visual grammar change: punch-in close-up → wide → text beat → HUD)
+8. **Twist moment:** 0.8s music hole → glitch/boom impact frame
+9. **Visual loop ending:** last frame = first frame ka echo (whip-in). Shorts ka end = emotional punchline, **CTA nahi**
 
 ## STEP 7 — Sound Design (3-Layer + Confirmed Micro-SFX Map)
 
@@ -221,22 +221,29 @@ Mix: VO -14 LUFS integrated, music -20 LUFS ducked, SFX transients -8 to -12. Ph
 - **Description:** 2-3 line hook + timestamps (long-form) + sources + "Made with AI" note + hashtags `#facts #education #india`
 - **Shorts:** pinned comment with question (engagement bait), 2nd comment with "Part 2?" loop
 
-## STEP 10 — QC Gate (Publish se Pehle)
+## STEP 10 — QC Gate (Publish se Pehle — ab TOOL-BACKED)
+
+**Mandatory tool checks (numbers, opinions nahi):**
+```bash
+python3 tools/frame_analyzer.py FINAL.mp4 --report qc/motion.md --sheet qc/sheet.png
+# PASS: avg motion > 5.0 | longest static run < 1.0s | static frames < 5%
+ffmpeg -i FINAL.mp4 -af silencedetect=noise=-38dB:d=0.6 -f null -   # 0 silence gaps = VO continuous
+```
 
 | # | Check | Pass? |
 |---|---|---|
 | 1 | Contrast hook 2s mein curiosity + 10s mein opposites collide | ☐ |
 | 2 | Hindi VO + English labels (dual-channel) | ☐ |
-| 3 | Koi frame 2s+ static nahi (2-second rule) | ☐ |
-| 4 | Visual engine consistent (ek video = ek engine) | ☐ |
-| 5 | Numbers par counters/stat cards + strong words par stamps | ☐ |
-| 6 | Twist par silence→impact moment (+ face-cam reset ho sakta hai) | ☐ |
-| 7 | Micro-SFX har ~3s + music swells VO pauses par | ☐ |
-| 8 | Ending = emotional punchline + visual loop (shorts mein CTA nahi) | ☐ |
-| 9 | VO -14 LUFS, phone speaker par clear, micro-acting natural | ☐ |
-| 10 | Facts double-source verified + "Made with AI" label ON | ☐ |
+| 3 | **frame_analyzer PASS** (motion>5, longest static<1s) | ☐ |
+| 4 | **VO continuity** — 0 gaps ≥0.6s (voice bich mein nahi tooti) | ☐ |
+| 5 | Kinetic type: labels word-pop, numbers ROLL karke snap, stamps slam | ☐ |
+| 6 | Whip transitions at cuts + glitch/flash at hits | ☐ |
+| 7 | Twist par music-hole + boom impact | ☐ |
+| 8 | Micro-SFX ≥1 per 1.5s + music swells VO pauses par | ☐ |
+| 9 | Ending = emotional punchline + visual loop (shorts mein CTA nahi) | ☐ |
+| 10 | VO -14 LUFS, koi label clip nahi, facts verified, "Made with AI" ON | ☐ |
 
-**Score < 9/10 → revise. Nahi to publish nahi.**
+**Score < 9/10 → revise. Analyzer FAIL → publish NAHI.**
 
 ## STEP 11 — Publish Rhythm & Feedback Loop
 
@@ -249,15 +256,17 @@ Mix: VO -14 LUFS integrated, music -20 LUFS ducked, SFX transients -8 to -12. Ph
 
 ## Anti-Patterns (Kabhi Mat Karo)
 
-1. ❌ Slideshow + robot TTS (1990s style) — yeh skill ka pura point cinematic feel hai
-2. ❌ Static image 3s+ — retention murder
-3. ❌ Abstract titles ("Amazing Facts About Nature") — curiosity gap zero
-4. ❌ Soft trivia topics bina stakes ke (data: 7-12K views cap)
-5. ❌ Music VO se loud — clarity first
-6. ❌ Facts bina source ke (AI hallucination risk) — trust hi brand hai
-7. ❌ Har video same language blindly — topic ke hisaab se Hindi/English choose karo
-8. ❌ 60s mein 10 facts daalna — 3-4 escalating facts better hain
+1. ❌ **Static photo + caption slideshow** — client-tested REJECT ("1% bhi nahi"). Motion engine mandatory
+2. ❌ VO ko chunks mein todna / beech mein gaps daalna — client law: voice continuous
+3. ❌ Text jo clip ho ya ek baar aake baithe — kinetic type + auto-fit mandatory
+4. ❌ Counters jo seedha final value dikhayein — real numbers **bhaagte hain** phir snap
+5. ❌ Hard cuts bina transition — whoosh/whip/flash lagao
+6. ❌ Abstract titles ("Amazing Facts About Nature") — curiosity gap zero
+7. ❌ Soft trivia topics bina stakes ke (data: 7-12K views cap)
+8. ❌ Music VO se loud — clarity first
+9. ❌ Facts bina source ke (AI hallucination risk) — trust hi brand hai
+10. ❌ 60s mein 10 facts daalna — 3-4 escalating facts better hain
 
 ---
 
-*Skill status: **READY**. Data-backed (38 videos, 7 transcripts, sound-marker evidence). Upgrade layer: `upgrade-playbook.md`.*
+*Skill status: **READY v2**. Data-backed (38 videos, 7 transcripts, 4 frame-level post-mortems, client-tested rejections). Production: `motion-engine.md` + `video-project/build_video_v3.py` + `tools/frame_analyzer.py`. Upgrade layer: `upgrade-playbook.md`.*
