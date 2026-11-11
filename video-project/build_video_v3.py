@@ -68,14 +68,16 @@ TV = round(VDUR + 1.3, 2)
 print(f"VO: raw->choked {dur_a:.2f}s -> atempo {atempo:.3f} -> {VDUR:.2f}s  | TV={TV}")
 
 # phrase map on final VO (for scene cuts + word sync)
-r = run([FF, "-y", "-i", VO_P, "-af", "silencedetect=noise=-33dB:d=0.30", "-f", "null", "-"], err_ok=True)
+# NOTE: VO was silence-choked to 0.18s gaps, so detect short gaps
+r = run([FF, "-y", "-i", VO_P, "-af", "silencedetect=noise=-33dB:d=0.09", "-f", "null", "-"], err_ok=True)
 sil = []
 for l in r.stderr.splitlines():
     if "silence_start" in l:
         s = float(l.split("silence_start:")[1].strip()); sil.append([s, None])
     if "silence_end" in l and sil and sil[-1][1] is None:
         sil[-1][1] = float(l.split("silence_end:")[1].split("|")[0].strip())
-gaps = [(a, b) for a, b in sil if b is not None and b - a >= 0.28]
+gaps = [(a, b) for a, b in sil if b is not None and b - a >= 0.08]
+print(f"detected {len(gaps)} phrase gaps")
 
 # ---------------- scene table ----------------
 # semantic cut targets in final-time fractions -> pick nearest detected gaps
@@ -88,7 +90,15 @@ for f in cut_fracs:
     if best and all(abs(best[0] - c) > 0.4 for c in cut_times):
         cut_times.append(best[0])
 cut_times = sorted(cut_times)
-while len(cut_times) > N_SCENES - 1: cut_times.pop()
+need = N_SCENES - 1
+if len(cut_times) < need:                       # fallback: uniform fractions
+    for f in cut_fracs:
+        tt = f * VDUR
+        if all(abs(tt - c) > 0.4 for c in cut_times):
+            cut_times.append(tt)
+        if len(cut_times) >= need: break
+    cut_times = sorted(cut_times)
+while len(cut_times) > need: cut_times.pop()
 T = [0.0] + [round(c, 3) for c in cut_times] + [TV]
 SC = []
 IMG = {0: "c1-hook", 1: "c11-brain-button", 2: "c4-alarm", 3: "c9-water-milk",
@@ -258,7 +268,7 @@ def stepped_counter(d, t, steps, y, base=132):
             d.text(((W - tw) / 2, y), txt, font=fnt, fill=(255, 215, 0),
                    stroke_width=8, stroke_fill="black")
 
-def particles(d, t, seed, n=20, color=(255, 210, 120)):
+def particles(d, t, seed, n=28, color=(255, 210, 120)):
     rnd = random.Random(seed)
     for k in range(n):
         x0, y0 = rnd.uniform(0, W), rnd.uniform(0, H)
@@ -267,7 +277,7 @@ def particles(d, t, seed, n=20, color=(255, 210, 120)):
         sz = rnd.uniform(2.5, 7)
         x = (x0 + vx * t) % W
         y = (y0 + vy * t) % H
-        a = int(120 + 110 * math.sin(t * 2.1 + ph))
+        a = int(155 + 85 * math.sin(t * 2.1 + ph))
         d.ellipse([x - sz, y - sz, x + sz, y + sz], fill=(*color, max(0, a)))
 
 def speed_lines(d, t, t0, cx=W/2, cy=H/2, n=16, spread=1.0):
@@ -303,16 +313,16 @@ def draw_camera(base, s, deg, dx, dy):
     return base.transform((W, H), Image.AFFINE, (a, b, c, d_, e, f), resample=Image.BICUBIC)
 
 # ---------------- main render ----------------
-print("rendering frames...")
+NFR = int(TV * FPS)
 raw = f"{TMP}/raw.h264"
-proc = subprocess.Popen([FF, "-y", "-f", "rawvideo", "-pix_fmt", "rgb24",
+if os.path.exists(raw) and not os.environ.get("RERENDER"):
+    print(f"skip render (reuse {raw})")
+else:
+  proc = subprocess.Popen([FF, "-y", "-f", "rawvideo", "-pix_fmt", "rgb24",
                          "-s", f"{W}x{H}", "-r", str(FPS), "-i", "-",
                          "-c:v", "libx264", "-preset", "medium", "-crf", "19",
                          "-pix_fmt", "yuv420p", raw], stdin=subprocess.PIPE)
-
-NFR = int(TV * FPS)
-random.seed(7)
-for fi in range(NFR):
+  for fi in range(NFR):
     t = fi / FPS
     # scene lookup
     sc = SC[0]
@@ -325,9 +335,10 @@ for fi in range(NFR):
     # --- camera: push/pull + wobble + whip entry ---
     i = sc["i"]
     push = 1.34 - 0.16 * ease_in_out(seg(t, sc["t0"], sc["t1"])) if i % 2 == 0 else 1.18 + 0.16 * ease_in_out(seg(t, sc["t0"], sc["t1"]))
-    wob = 0.7 * math.sin(t * 1.9 + i * 1.7)
-    dx = 18 * math.sin(t * 0.7 + i) + 26 * math.sin(t * 2.2 + i * 3)
-    dy = 22 * math.cos(t * 0.55 + i * 2)
+    push *= 1 + 0.014 * math.sin(t * 2.6 + i)          # constant breathing pulse
+    wob = 1.15 * math.sin(t * 1.9 + i * 1.7) + 0.5 * math.sin(t * 3.3 + i)
+    dx = 18 * math.sin(t * 0.7 + i) + 26 * math.sin(t * 2.2 + i * 3) + 6 * math.sin(t * 4.1 + i * 5)
+    dy = 22 * math.cos(t * 0.55 + i * 2) + 6 * math.cos(t * 3.7 + i * 4)
     # whip entry slide
     whip = seg(t, sc["t0"], sc["t0"] + 0.26)
     if whip < 1 and not sc.get("loop") and i > 0:
@@ -348,7 +359,8 @@ for fi in range(NFR):
     if sc.get("soft"):
         push *= 1.03 - 0.03 * ease_in_out(seg(t, sc["t0"], sc["t1"]))
 
-    frame = draw_camera(base, push, wob, dx, dy)
+    frame = draw_camera(base, push, wob, dx + random.uniform(-2.2, 2.2),
+                        dy + random.uniform(-2.2, 2.2))   # film-weave jitter
 
     # punch-in cutaway: second half of content scenes -> quick zoom frame
     if dur > 3.2 and not sc.get("soft") and not sc.get("loop"):
@@ -400,7 +412,7 @@ for fi in range(NFR):
         vals = sc["counter"]
         tstep = (min(dur * 0.5, 1.5)) / max(len(vals) - 1, 1)
         steps = [(v, sc["t0"] + 0.55 + k * tstep, sc["t0"] + 0.55 + (k + 1) * tstep) for k, v in enumerate(vals)]
-        steps[-1] = (vals[-1], steps[-1][0], sc["t1"])
+        steps[-1] = (vals[-1], steps[-1][1], sc["t1"])
         stepped_counter(d, t, steps, yy2, base=118)
     if sc.get("roll"):
         rolling_number(d, t, sc["t0"] + 0.4, sc["t0"] + min(dur * 0.62, 2.6), sc["roll"][-1], y=470, base=112)
@@ -432,10 +444,8 @@ for fi in range(NFR):
         du.line([x, 62, x, 96], fill=(255, 255, 255, 120), width=3)
     frame = Image.alpha_composite(frame, ui)
 
-    # print texture + vignette
-    fr = np.array(frame)
-    fr[..., 3] = np.maximum(fr[..., 3], 0)
-    half = HALF_RGBA.copy()
+    # print texture + vignette (print-boil: halftone phase crawls every frame)
+    half = np.roll(np.roll(HALF_RGBA, (fi * 3) % 8, axis=0), (fi * 5) % 8, axis=1)
     frame = Image.alpha_composite(frame, Image.fromarray(half))
     frame = Image.alpha_composite(frame, Image.fromarray(VIG))
     # ending glow
@@ -447,9 +457,9 @@ for fi in range(NFR):
     proc.stdin.write(frame.convert("RGB").tobytes())
     if fi % 150 == 0: print(f"  frame {fi}/{NFR}  t={t:.1f}s")
 
-proc.stdin.close()
-proc.wait()
-print("video pass done")
+  proc.stdin.close()
+  proc.wait()
+  print("video pass done")
 
 # ---------------- audio ----------------
 print("audio...")
@@ -503,14 +513,14 @@ ev.append(("zap", T[2] + 0.2, 0.5))
 ev.append(("chord", T[8], 0.85))
 ev = [(f, max(0.0, t), v) for f, t, v in ev if t < TV]
 
-mix = "[0:a]volume=1.06[vo];[1:a]volume=0.30[mus];"
+mix = "[1:a]volume=1.06[vo];[2:a]volume=0.30[mus];"
 inputs = [VO_P, f"{TMP}/music.wav"]
 keys = ["vo", "mus"]
 for k, (fname, tt, vv) in enumerate(ev):
     p = sfx_files[fname]
     inputs.append(p)
     ms = int(tt * 1000)
-    mix += f"[{k+2}:a]volume={vv},adelay={ms}|{ms}[e{k}];"
+    mix += f"[{k+3}:a]volume={vv},adelay={ms}|{ms}[e{k}];"
     keys.append(f"e{k}")
 mix += "".join(f"[{k}]" for k in keys) + f"amix=inputs={len(keys)}:duration=first:normalize=0[mx];"
 mix += "[mx]loudnorm=I=-14:TP=-1.2:LRA=11[aout]"
